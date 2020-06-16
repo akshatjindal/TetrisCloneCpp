@@ -11,10 +11,20 @@
 #include <iostream>
 #include <vector>
 
+bool quit = false;
+SDL_Window * window = NULL;
+SDL_Renderer * la_rend = NULL;
+TTF_Font * font = NULL;
+const int WIDTH = 800;
+const int HEIGHT = 600;
+int frameCount = 0; int lastFrame = 0; int timerFPS = 0;
+std::vector<SDL_Rect *> boundary_objects;
+
 enum class tetrinimotype: unsigned char{
 	looong,
 	tbone,
 	three_and_one,
+	box,
 };
 
 enum class tetrinimocolor : unsigned char{
@@ -42,8 +52,24 @@ public:
 		if(_type == tetrinimotype::looong){
 			rectOne.x = _x;
 			rectOne.y = _y;
-			rectOne.w = 18;
-			rectOne.h = 115;
+			rectOne.w = 20;
+			rectOne.h = 120;
+			
+			rectTwo.x= _x;
+			rectTwo.y = _y;
+			rectTwo.w = 0;
+			rectTwo.h = 0;
+		}
+		
+		if(_type == tetrinimotype::box){
+			int wid = 60; int hei = 30;
+			rectOne.x = _x;
+			rectOne.y = _y;
+			rectTwo.x = _x;
+			rectTwo.y = _y + hei;
+			
+			rectOne.w = rectTwo.w = wid;
+			rectOne.h = rectTwo.h = hei;
 		}
 		
 		color = _color;
@@ -53,19 +79,93 @@ public:
 		return this->color;
 	}
 	
+	bool is_rotateable(){
+		if(this->type == tetrinimotype::box)
+			return false;
+		return true;
+	}
+	
 };//tetrinomo class.
 
-bool quit = false;
-SDL_Window * window = NULL;
-SDL_Renderer * la_rend = NULL;
-TTF_Font * font = NULL;
-const int WIDTH = 800;
-const int HEIGHT = 600;
-int frameCount = 0; int lastFrame = 0; int timerFPS = 0;
-std::vector<SDL_Rect *> boundary_objects;
 std::vector<Tetrinomo *> the_tetrinomos;
 
-void update(SDL_Scancode a);
+class Game{
+private:
+	size_t index_of_active_tetrinimo = 0;
+	SDL_Rect * bottom_boundary = boundary_objects[2];
+	SDL_Rect * right_boundary = boundary_objects[1];
+	Tetrinomo * active_tetrinimo = the_tetrinomos[index_of_active_tetrinimo];
+	
+	bool intersects_bottom();
+	bool intersects_right();
+	bool intersects_left();
+	
+	void move_down(){
+		
+		if(intersects_bottom()) return;
+		
+		active_tetrinimo->rectOne.y += 10;
+		active_tetrinimo->rectTwo.y += 10;
+		
+	}
+	
+	void move_right(){
+		if(intersects_right()) return;
+		
+		active_tetrinimo->rectOne.x += 20;
+		active_tetrinimo->rectTwo.x += 20;
+		
+	}
+	
+	void move_left(){
+		
+	}
+	
+	void drop(){
+		
+	}
+	
+	void rotate_right(){
+		
+	}
+	
+	void rotate_left(){
+		
+	}
+public:
+	
+	void update(SDL_Scancode a);
+	
+	
+};
+
+bool Game::intersects_left(){
+	return false;
+}
+
+bool Game::intersects_right(){
+	SDL_Rect temp_r_one = active_tetrinimo->rectOne;
+	SDL_Rect temp_r_two  = active_tetrinimo->rectTwo;
+	std::cout << temp_r_one.x << "\n";
+	temp_r_one.x += 20; temp_r_two.x += 20;
+	
+	if(SDL_HasIntersection(&temp_r_one, right_boundary) || SDL_HasIntersection(&temp_r_two, right_boundary))
+		return true;
+	return false;
+}
+
+bool Game::intersects_bottom(){
+	
+	SDL_Rect temp_r_one = active_tetrinimo->rectOne;
+	SDL_Rect temp_r_two  = active_tetrinimo->rectTwo;
+	
+	temp_r_one.y += 10; temp_r_two.y += 10;
+	
+	if(SDL_HasIntersection(&temp_r_one, bottom_boundary) || SDL_HasIntersection(&temp_r_two, bottom_boundary))
+		return true;
+	return false;
+}
+
 
 void printSDLError(){
 	std::cout << SDL_GetError() << std::endl;
@@ -101,27 +201,27 @@ SDL_Scancode input(){
 	while(SDL_PollEvent(&e)){
 		
 		if(e.type == SDL_QUIT){
-			quit = true;
-			break;
+			quit = true; break;
 		}
 		
 		if(keyStates[SDL_SCANCODE_ESCAPE]){
-			quit = true;
-			break;
+			quit = true; break;
+		}
+		
+		if(keyStates[SDL_SCANCODE_SPACE]){
+			x = SDL_SCANCODE_SPACE; break;
 		}
 		
 		if(keyStates[SDL_SCANCODE_RIGHT]){
-			x = SDL_SCANCODE_RIGHT;
-			break;
+			x = SDL_SCANCODE_RIGHT; break;
 		}
 		
 		if(keyStates[SDL_SCANCODE_LEFT]){
-			
-			break;
+			x = SDL_SCANCODE_LEFT; break;
 		}
 		
 		if(keyStates[SDL_SCANCODE_DOWN]){
-			x = SDL_SCANCODE_DOWN;
+			x = SDL_SCANCODE_DOWN; break;
 		}
 		
 	}//while sdl poll event
@@ -131,20 +231,19 @@ SDL_Scancode input(){
 }
 
 
-void update(SDL_Scancode _key){
+void Game::update(SDL_Scancode _key){
 	
 	switch (_key) {
 		case SDL_SCANCODE_DOWN:
-			the_tetrinomos[0]->rectOne.y += 10;
-			break;
-		
+			move_down(); break;
+	
 		case SDL_SCANCODE_RIGHT:
-			the_tetrinomos[0]->rectOne.x += 10;
-			break;
+			move_right(); break;
 		
-		case SDL_SCANCODE_D:
+		case SDL_SCANCODE_D: break;
 			
-			break;
+		case SDL_SCANCODE_LEFT:
+			the_tetrinomos[0]->rectOne.x -= 20; break;
 			
 		default:
 			break;
@@ -186,11 +285,16 @@ void drawBoundary()
 
 void drawTetrinimos(){
 	for(auto i = 0; i < the_tetrinomos.size(); ++i){
-		if(the_tetrinomos[i]->get_color() == tetrinimocolor::green)
+		auto obj = the_tetrinomos[i];
+		
+		if(obj->get_color() == tetrinimocolor::green)
 			SDL_SetRenderDrawColor(la_rend, 0, 255, 0, 255);
 		
-		SDL_RenderFillRect(la_rend, &the_tetrinomos[i]->rectOne);
-		SDL_RenderFillRect(la_rend, &the_tetrinomos[i]->rectTwo);
+		if(obj->get_color() == tetrinimocolor::blue)
+			SDL_SetRenderDrawColor(la_rend, 0, 0, 205, 255);
+		
+		SDL_RenderFillRect(la_rend, &obj->rectOne);
+		SDL_RenderFillRect(la_rend, &obj->rectTwo);
 			
 	}
 }
@@ -224,8 +328,13 @@ int main(){
 	
 	Tetrinomo * a = new Tetrinomo(tetrinimotype::looong, 300, 150, tetrinimocolor::green);
 	
-	
+	Tetrinomo * box = new Tetrinomo(tetrinimotype::box, 350, 150,
+									tetrinimocolor::blue);
 	the_tetrinomos.push_back(a);
+	the_tetrinomos.push_back(box);
+	
+	Game g;
+	
 	
 	static int lastTime = 0; int fps = 0;
 	
@@ -239,7 +348,7 @@ int main(){
 		}//if
 		
 		auto _input = input();
-		update(_input);
+		g.update(_input);
 		render();
 		
 	}//while not quit
@@ -256,5 +365,9 @@ int main(){
 	//...that will be spawned so that the user can
 	//...make their move.
 	
+	/*TODO: when user pressed space, the tetrinimo,
+	 should drop and it should drop properly. */
+	
+	//TODO: draw lines on the shapes to make them look cooler.
 	closeAndFreeSystems();
 }
