@@ -111,7 +111,7 @@ SDL_Scancode input(){
 		}
 		
 		if(keyStates[SDL_SCANCODE_RIGHT]){
-			
+			x = SDL_SCANCODE_RIGHT;
 			break;
 		}
 		
@@ -130,9 +130,25 @@ SDL_Scancode input(){
 	
 }
 
+
 void update(SDL_Scancode _key){
-	if(_key == SDL_SCANCODE_DOWN)
-		the_tetrinomos[0]->rectOne.y += 10;
+	
+	switch (_key) {
+		case SDL_SCANCODE_DOWN:
+			the_tetrinomos[0]->rectOne.y += 10;
+			break;
+		
+		case SDL_SCANCODE_RIGHT:
+			the_tetrinomos[0]->rectOne.x += 10;
+			break;
+		
+		case SDL_SCANCODE_D:
+			
+			break;
+			
+		default:
+			break;
+	}
 }
 
 void createBoundaryObjects(){
@@ -207,7 +223,7 @@ int main(){
 	createBoundaryObjects();
 	
 	Tetrinomo * a = new Tetrinomo(tetrinimotype::looong, 300, 150, tetrinimocolor::green);
-	//TODO: create a destructor for the tetrinimo object.
+	
 	
 	the_tetrinomos.push_back(a);
 	
@@ -228,6 +244,17 @@ int main(){
 		
 	}//while not quit
 	
+	//TODO: create a destructor for the tetrinimo object.
+	
+	//TODO: add an active tetrinimo state
+	//this is the tetrinimo that we will move
+	
+	//TODO: add a rotate function for each tetrinimo.
+	
+	//TODO: add a tetrinimobuilder class that spawns
+	//...tetrinimos and displays the next tetrinimo
+	//...that will be spawned so that the user can
+	//...make their move.
 	
 	closeAndFreeSystems();
 }
