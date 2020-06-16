@@ -91,35 +91,51 @@ std::vector<Tetrinomo *> the_tetrinomos;
 
 class Game{
 private:
+	std::vector<Tetrinomo *> top_layer;
+	
 	size_t index_of_active_tetrinimo = 0;
 	SDL_Rect * bottom_boundary = boundary_objects[2];
 	SDL_Rect * right_boundary = boundary_objects[1];
-	Tetrinomo * active_tetrinimo = the_tetrinomos[index_of_active_tetrinimo];
 	
+	SDL_Rect * left_boun = boundary_objects[0];
+	
+	Tetrinomo * act = the_tetrinomos[index_of_active_tetrinimo];
+	
+	std::pair<bool, int> intersects_left();
+	std::pair<bool, int> intersects_right();
 	bool intersects_bottom();
-	bool intersects_right();
-	bool intersects_left();
+	bool has_reached_bottom();
+	
 	
 	void move_down(){
 		
 		if(intersects_bottom()) return;
 		
-		active_tetrinimo->rectOne.y += 10;
-		active_tetrinimo->rectTwo.y += 10;
+		act->rectOne.y += 10;
+		act->rectTwo.y += 10;
 		
 	}
 	
 	void move_right(){
-		if(intersects_right()) return;
-		
-		active_tetrinimo->rectOne.x += 20;
-		active_tetrinimo->rectTwo.x += 20;
-		
+		auto p = intersects_right();
+		if(p.first == true)
+			return;
+		else{
+			act->rectOne.x += p.second;
+			act->rectTwo.x += p.second;
+		}
 	}
 	
 	void move_left(){
-		
+		auto p = intersects_left();
+		if(p.first) return;
+		else{
+			act->rectOne.x -= p.second;
+			act->rectTwo.x -= p.second;
+		}
 	}
+	
+	
 	
 	void drop(){
 		
@@ -139,25 +155,70 @@ public:
 	
 };
 
-bool Game::intersects_left(){
-	return false;
+bool Game::has_reached_bottom(){
+	
+	
+	
 }
 
-bool Game::intersects_right(){
-	SDL_Rect temp_r_one = active_tetrinimo->rectOne;
-	SDL_Rect temp_r_two  = active_tetrinimo->rectTwo;
-	std::cout << temp_r_one.x << "\n";
+std::pair<bool,int> Game::intersects_left(){
+	
+	if(SDL_HasIntersection(left_boun, &act->rectOne) || SDL_HasIntersection(left_boun, &act->rectTwo))
+		return std::make_pair(true,0);
+	
+	auto temp_r_one = act->rectOne;
+	auto temp_r_two = act->rectTwo;
+	temp_r_one.x -= 20; temp_r_two.x -= 20;
+	
+	if(not SDL_HasIntersection(left_boun, &temp_r_one) &&  not SDL_HasIntersection(left_boun, &temp_r_two))
+		return std::make_pair(false, 20);
+	
 	temp_r_one.x += 20; temp_r_two.x += 20;
 	
-	if(SDL_HasIntersection(&temp_r_one, right_boundary) || SDL_HasIntersection(&temp_r_two, right_boundary))
-		return true;
-	return false;
+	int max_movement_to_left = 0;
+	for(int i = 1; i < 20; ++i){
+		temp_r_one.x -= i; temp_r_two.x -= i;
+		if(SDL_HasIntersection(&temp_r_one, left_boun) || SDL_HasIntersection(&temp_r_two, left_boun)){
+			max_movement_to_left = i-1; break;
+		}
+	}
+	
+	
+	return std::make_pair(false, max_movement_to_left);
+}
+
+std::pair<bool,int> Game::intersects_right(){
+	
+	if(SDL_HasIntersection(right_boundary, &act->rectOne) || SDL_HasIntersection(right_boundary, &act->rectTwo)){
+		return std::make_pair(true, 0);
+	}
+	
+	auto temp_r_one = act->rectOne;
+	auto temp_r_two = act->rectTwo;
+	temp_r_one.x += 20; temp_r_two.x += 20;
+	
+	if(not SDL_HasIntersection(right_boundary, &temp_r_one) &&  not SDL_HasIntersection(right_boundary, &temp_r_two))
+		return std::make_pair(false, 20);
+	
+	temp_r_one.x -= 20;
+	temp_r_two.x -= 20;
+	
+	int max_movement_to_right = 0;
+	for(int i = 1; i < 20; ++i){
+		temp_r_one.x += i;
+		temp_r_two.x+= i;
+		if(SDL_HasIntersection(&temp_r_one, right_boundary) || SDL_HasIntersection(&temp_r_two, right_boundary)){
+			max_movement_to_right = i-1; break;
+		}
+	}
+	
+	return std::make_pair(false, max_movement_to_right);
 }
 
 bool Game::intersects_bottom(){
 	
-	SDL_Rect temp_r_one = active_tetrinimo->rectOne;
-	SDL_Rect temp_r_two  = active_tetrinimo->rectTwo;
+	SDL_Rect temp_r_one = act->rectOne;
+	SDL_Rect temp_r_two  = act->rectTwo;
 	
 	temp_r_one.y += 10; temp_r_two.y += 10;
 	
@@ -243,7 +304,7 @@ void Game::update(SDL_Scancode _key){
 		case SDL_SCANCODE_D: break;
 			
 		case SDL_SCANCODE_LEFT:
-			the_tetrinomos[0]->rectOne.x -= 20; break;
+			move_left(); break;
 			
 		default:
 			break;
