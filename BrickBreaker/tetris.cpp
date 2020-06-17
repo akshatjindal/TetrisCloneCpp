@@ -40,6 +40,8 @@ class Tetrinomo{
 private:
 	tetrinimotype type;
 	tetrinimocolor color;
+	bool can_go_further_down = true;
+	bool tetrinimo_locked = false;
 public:
 	SDL_Rect rectOne;
 	SDL_Rect rectTwo;
@@ -85,6 +87,22 @@ public:
 		return true;
 	}
 	
+	bool can_go_furth_down(){
+		return this->can_go_further_down;
+	}
+	
+	void set_cant_go_further_down(){
+		this->can_go_further_down = false;
+	}
+	
+	bool is_locked(){
+		return this->tetrinimo_locked;
+	}
+	
+	void lock_tetrinimo(){
+		this->tetrinimo_locked = true;
+	}
+	
 };//tetrinomo class.
 
 std::vector<Tetrinomo *> the_tetrinomos;
@@ -106,10 +124,31 @@ private:
 	bool intersects_bottom();
 	bool has_reached_bottom();
 	
+	void spawn_tetrinimo(){
+		
+	}
+	
+	void spawn_and_change_active_tetrinimo(){
+		act = the_tetrinomos[1];
+		spawn_tetrinimo();
+	}
+	
+	void lock_logic(){
+		
+		if(act->is_locked()) return;
+		
+		if(act->can_go_furth_down() == false){
+			
+			act->lock_tetrinimo();
+			spawn_and_change_active_tetrinimo();
+		}
+		
+			
+	}
 	
 	void move_down(){
 		
-		if(intersects_bottom()) return;
+		if(has_reached_bottom()) return;
 		
 		act->rectOne.y += 10;
 		act->rectTwo.y += 10;
@@ -157,7 +196,17 @@ public:
 
 bool Game::has_reached_bottom(){
 	
+	//TODO: we need to check if the tetrinimo has reached as far down as it can go
+	//...for this particular set of x values (think about dividing the playing field
+	//...in grid lines).
 	
+	if(intersects_bottom()){
+		
+		act->set_cant_go_further_down();
+		return true;
+	}
+	
+	return false;
 	
 }
 
@@ -253,36 +302,25 @@ void closeAndFreeSystems(){
 }
 
 SDL_Scancode input(){
-	SDL_Event e;
-	//input stuff
-	const Uint8 * keyStates = SDL_GetKeyboardState(NULL);
 	
+	SDL_Event e;
 	auto x = SDL_SCANCODE_UNKNOWN;
 	
 	while(SDL_PollEvent(&e)){
+		auto keyPressed = e.key.keysym.scancode;
 		
 		if(e.type == SDL_QUIT){
 			quit = true; break;
 		}
 		
-		if(keyStates[SDL_SCANCODE_ESCAPE]){
-			quit = true; break;
-		}
-		
-		if(keyStates[SDL_SCANCODE_SPACE]){
-			x = SDL_SCANCODE_SPACE; break;
-		}
-		
-		if(keyStates[SDL_SCANCODE_RIGHT]){
-			x = SDL_SCANCODE_RIGHT; break;
-		}
-		
-		if(keyStates[SDL_SCANCODE_LEFT]){
-			x = SDL_SCANCODE_LEFT; break;
-		}
-		
-		if(keyStates[SDL_SCANCODE_DOWN]){
-			x = SDL_SCANCODE_DOWN; break;
+		switch (keyPressed) {
+			case SDL_SCANCODE_ESCAPE:
+				quit = true;
+				break;
+				
+			default:
+				x = keyPressed;
+				break;
 		}
 		
 	}//while sdl poll event
@@ -301,10 +339,17 @@ void Game::update(SDL_Scancode _key){
 		case SDL_SCANCODE_RIGHT:
 			move_right(); break;
 		
-		case SDL_SCANCODE_D: break;
+		case SDL_SCANCODE_D:
+			//TODO: add rotate functionality.
+			break;
 			
 		case SDL_SCANCODE_LEFT:
+			
 			move_left(); break;
+		
+		case SDL_SCANCODE_LSHIFT:
+			std::cout << "kosi\n";
+			lock_logic(); break;
 			
 		default:
 			break;
