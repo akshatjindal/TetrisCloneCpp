@@ -41,6 +41,11 @@ enum class movetype: unsigned char{
 	right,
 };
 
+enum class rotateType: unsigned char{
+	left,
+	right,
+};
+
 class Tetrinomo{
 	
 private:
@@ -48,15 +53,15 @@ private:
 	tetrinimocolor color;
 	bool can_go_further_down = true;
 	bool tetrinimo_locked = false;
+	bool standing = true;
 public:
 	SDL_Rect rectOne;
 	SDL_Rect rectTwo;
 	
-	Tetrinomo(){
-		
-	}
+	Tetrinomo(){}
 	
 	Tetrinomo(tetrinimotype _type, int _x, int _y, tetrinimocolor _color){
+		
 		if(_type == tetrinimotype::looong){
 			rectOne.x = _x;
 			rectOne.y = _y;
@@ -94,10 +99,20 @@ public:
 		
 		
 		color = _color;
+		type = _type;
 	}
 	
 	tetrinimocolor get_color(){
 		return this->color;
+	}
+	
+	void exchange_width_height_helper(){
+		int tempWidth = this->rectOne.w;
+		
+		this->rectOne.w = this->rectOne.h;
+		this->rectOne.h = tempWidth;
+		this->rectTwo.w = this->rectTwo.w;
+		this->rectTwo.h = tempWidth;
 	}
 	
 	bool is_rotateable(){
@@ -122,6 +137,30 @@ public:
 		this->tetrinimo_locked = true;
 	}
 	
+	void rotateLeftLogic();
+	void rotateRightLogic();
+
+	void set_standing(bool _standing){
+		this->standing = _standing;
+	}
+	
+	bool get_standing(){
+		return this->standing;
+	}
+	
+	void rotate(rotateType _rotate){
+		
+		if(_rotate == rotateType::left){
+			rotateLeftLogic();
+		}
+		
+		else if(_rotate == rotateType::right){
+			rotateRightLogic();
+		}
+	
+		
+	}
+	
 };//tetrinomo class.
 
 std::vector<Tetrinomo *> the_tetrinomos;
@@ -138,21 +177,23 @@ private:
 	
 	Tetrinomo * act = the_tetrinomos[index_of_active_tetrinimo];
 	
-	
+	bool currently_intersecting_another_tetrinimo(const SDL_Rect & r1, const SDL_Rect &r2);
 	void rect_manipulator_helper(movetype _move, SDL_Rect &r1, SDL_Rect &r2, bool manipulate);
 	
-	bool tetrinimo_intersection_helper(const SDL_Rect & r1, const SDL_Rect &r2, const Tetrinomo * _tet, movetype _move);
+	bool tetrinimo_intersection_helper(const SDL_Rect & r1, const SDL_Rect &r2, const Tetrinomo * _tet);
 	
-
+	bool currently_intersects_a_boundary();
+	std::pair<bool, int> intersects_down();
 	std::pair<bool, int> intersects_another_tetrinimo(movetype _move);
 	std::pair<bool, int> intersects_left();
 	std::pair<bool, int> intersects_right();
-	bool intersects_bottom();
-	bool has_reached_bottom();
+	bool tetrinimo_right_under_active();
 	
 	void spawn_tetrinimo(){
-		Tetrinomo * a = new Tetrinomo(tetrinimotype::three_and_one,300,200, tetrinimocolor::green);
+		
+		Tetrinomo * a = new Tetrinomo(tetrinimotype::three_and_one,300,200, tetrinimocolor::pink);
 		the_tetrinomos.push_back(a);
+		
 	}
 	
 	void spawn_and_change_active_tetrinimo(){
@@ -172,30 +213,39 @@ private:
 			spawn_and_change_active_tetrinimo();
 		}
 		
-			
 	}
 	
 	void move_down(){
 		
-		if(has_reached_bottom()) return;
+//	SDL_Rect r1 = act->rectOne; SDL_Rect r2 = act->rectTwo;
+//	assert(not currently_intersecting_another_tetrinimo(r1, r2));
 		
-		auto p = intersects_another_tetrinimo(movetype::down);
-		
-		if(p.first == true){
-			act->rectOne.y += p.second;
-			act->rectTwo.y += p.second;
+		auto p = intersects_down();
+		bool intersects_down = p.first;
+		if(not intersects_down){
+			auto c = intersects_another_tetrinimo(movetype::down);
+			bool intersects_another_tet = c.first;
+			if(intersects_another_tet){
+				act->rectOne.y += c.second;
+				act->rectTwo.y += c.second;
+				
+			}
+			
+			else if(not intersects_another_tet){
+				act->rectOne.y += p.second;
+				act->rectTwo.y += p.second;
+			}
 		}
 		
-		//TODO: implement a function that tells us how close
-		//...a rect is from the bottom boundary.
-		//...this func will serve the same function as intersect_left() and intersect_right()
-		else{
-			act->rectOne.y += 10;
-			act->rectTwo.y += 10;
-		}
+//		r1 = act->rectOne; r2 = act->rectTwo;
+//		assert(not currently_intersecting_another_tetrinimo(r1, r2));
 	}
 	
 	void move_right(){
+		
+//		SDL_Rect & r1 = act->rectOne; SDL_Rect & r2 = act->rectTwo;
+//		assert(not currently_intersecting_another_tetrinimo(r1, r2));
+		
 		auto p = intersects_right();
 		bool intersects_right_boundary = p.first;
 		if(not intersects_right_boundary){
@@ -211,9 +261,14 @@ private:
 				act->rectTwo.x += c.second;
 			}
 		}
+		
+//		assert(not currently_intersecting_another_tetrinimo(r1, r2));
 	}
 	
 	void move_left(){
+//		SDL_Rect r1 = act->rectOne; SDL_Rect r2 = act->rectTwo;
+//		assert(not currently_intersecting_another_tetrinimo(r1, r2));
+		
 		auto p = intersects_left();
 		bool intersects_left_boundary = p.first;
 		if(not intersects_left_boundary){
@@ -229,7 +284,10 @@ private:
 				act->rectTwo.x -= p.second;
 			}
 		}
-	}
+		
+//		r1 = act->rectOne; r2 = act->rectTwo;
+//		assert(not currently_intersecting_another_tetrinimo(r1, r2));
+	}//move_left func
 	
 	
 	
@@ -237,37 +295,164 @@ private:
 		
 	}
 	
-	void rotate_right(){
+	void rotate(rotateType _r){
 		
+		act->rotate(_r);
+		
+		//TODO: once you rotate, you wanna check if this is collidi
+		//..ing w/ some other tetrinimo.
+		
+		if(currently_intersecting_another_tetrinimo(act->rectOne, act->rectTwo) || currently_intersects_a_boundary()){
+
+			std::cout << "awena\n";
+			
+			if(_r == rotateType::right)
+				{
+					std::cout << "losi\n";
+					act->rotate(rotateType::left);
+				}
+			else
+				{
+					act->rotate(rotateType::right);
+				}
+		}
+		
+		else{
+			act->set_standing(!act->get_standing());
+		}
+
 	}
 	
-	void rotate_left(){
-		
-	}
 public:
 	
 	void update(SDL_Scancode a);
-	
-	
 };
 
-bool Game::tetrinimo_intersection_helper(const SDL_Rect & r1, const SDL_Rect &r2, const Tetrinomo * _tet, movetype _move){
+bool Game::currently_intersecting_another_tetrinimo(const SDL_Rect & r1, const SDL_Rect &r2){
 	
-	if(_move == movetype::down){
-		if(
-		   SDL_HasIntersection(&r1, &_tet->rectOne) ||
-		   SDL_HasIntersection(&r1, &_tet->rectTwo) ||
-		   SDL_HasIntersection(&r2, &_tet->rectOne) ||
-		   SDL_HasIntersection(&r2, &_tet->rectTwo)
-		   ){
+	for(size_t i = 0; i < index_of_active_tetrinimo; ++i){
+		if(tetrinimo_intersection_helper(r1, r2, the_tetrinomos[i]))
 			return true;
+	}
+	
+	return false;
+}
+
+void Tetrinomo::rotateLeftLogic(){
+	
+	if(this->type == tetrinimotype::box)
+		return;
+	
+	
+	if(not this->standing)
+		{
+			this->rectOne.y -= (this->rectOne.w - 20);
+			this->rectTwo.y -= (this->rectTwo.w - 20);
+		}
+	else if(this->standing){
+		this->rectOne.y += (this->rectOne.h - 20);
+		this->rectOne.x -= (this->rectOne.h - 20);
+		
+		this->rectTwo.y += (this->rectTwo.h - 20);
+		this->rectTwo.x -= (this->rectTwo.h - 20);
+	}
+	
+	exchange_width_height_helper();
+	
+}
+
+void Tetrinomo::rotateRightLogic(){
+	
+	if(this->type == tetrinimotype::box) return;
+	
+	if(this->type == tetrinimotype::looong){
+		
+		std::cout << standing << "\n";
+		std::cout << "trois\n" ;
+
+		this->rectOne.y += (this->rectOne.h - 20);
+		this->rectTwo.y += (this->rectOne.h - 20);
+		exchange_width_height_helper();
+	}
+	
+	if(this->type == tetrinimotype::three_and_one){
+		std::cout << "five\n";
+		
+		this->rectOne.y += (this->rectOne.h - 20);
+		this->rectTwo.y = this->rectOne.y - 30;
+		
+		int tempWidthOne = this->rectOne.w; int tempWidthTwo = this->rectTwo.w;
+		this->rectOne.w = this->rectOne.h;
+		this->rectOne.h = tempWidthOne;
+		
+		this->rectTwo.w = this->rectTwo.h;
+		this->rectTwo.h = tempWidthTwo;
+		this->rectTwo.x = this->rectOne.x + 30;
+		this->rectTwo.y = this->rectOne.y + this->rectOne.h - 30;
+		
+	}
+
+	
+
+}
+
+bool Game::currently_intersects_a_boundary(){
+	
+	bool flag = false;
+	
+	auto temp_r1 = act->rectOne; auto temp_r2 = act->rectTwo;
+	if(SDL_HasIntersection(&temp_r1, bottom_boundary)
+	   || SDL_HasIntersection(&temp_r2, bottom_boundary)){
+//		act->set_cant_go_further_down();
+		flag = 1;
+	}
+	
+	else if(SDL_HasIntersection(left_boun, &temp_r1) || SDL_HasIntersection(left_boun, &temp_r2))
+		flag = 1;
+	
+	else if(SDL_HasIntersection(right_boundary, &act->rectOne) || SDL_HasIntersection(right_boundary, &act->rectTwo))
+		flag = 1;
+	
+	return flag;
+}
+
+
+std::pair<bool, int> Game::intersects_down(){
+	
+	auto temp_r1 = act->rectOne; auto temp_r2 = act->rectTwo;
+	temp_r1.y += 10; temp_r2.y += 10;
+	
+	if(SDL_HasIntersection(&temp_r1, bottom_boundary)
+	   || SDL_HasIntersection(&temp_r2, bottom_boundary)){
+		act->set_cant_go_further_down();
+		return std::make_pair(true, 0);
+	}
+	
+	if(not SDL_HasIntersection(&temp_r1, bottom_boundary) && not SDL_HasIntersection(&temp_r2, bottom_boundary))
+		return std::make_pair(false, 10);
+	
+	temp_r1.y += 10; temp_r2.y +=10;
+	
+	int move = 0;
+	for(int i = 1; i < 10; ++i){
+		temp_r1.y += i; temp_r2.y += i;
+		if(SDL_HasIntersection(&temp_r1, bottom_boundary) || SDL_HasIntersection(&temp_r2, bottom_boundary)){
+			move = i-1; break;
 		}
 	}
 	
-	if(_move == movetype::left){
-		
+	return std::make_pair(false, move);
+}
+
+bool Game::tetrinimo_intersection_helper(const SDL_Rect & r1, const SDL_Rect &r2, const Tetrinomo * _tet){
+	if(
+	   SDL_HasIntersection(&r1, &_tet->rectOne) ||
+	   SDL_HasIntersection(&r1, &_tet->rectTwo) ||
+	   SDL_HasIntersection(&r2, &_tet->rectOne) ||
+	   SDL_HasIntersection(&r2, &_tet->rectTwo)
+	   ){
+		return true;
 	}
-	
 	
 		return false;
 }
@@ -276,43 +461,28 @@ void Game::rect_manipulator_helper(movetype _move, SDL_Rect &r1, SDL_Rect &r2, b
 	switch (_move) {
 		case movetype::right :
 			if(manipulate)
-				{r1.x += 20; r2.x += 20;}
+				{r1.x += 20; r2.x += 20; break; }
 			if(not manipulate)
-				{r1.x -= 20; r2.x -= 20;}
+				{r1.x -= 20; r2.x -= 20; break; }
 			break;
 			
 		case movetype::left :
 			if(manipulate)
-				{r1.x -= 20; r2.x -= 20;}
+				{r1.x -= 20; r2.x -= 20; break; }
 			if(not manipulate)
-				{r1.x += 20; r2.x += 20;}
+				{r1.x += 20; r2.x += 20; break; }
 			
 		case movetype::down :
 			if(manipulate)
-				{r1.y += 10; r2.y += 10;}
+				{r1.y += 10; r2.y += 10; break; }
 			if(not manipulate)
-				{r1.y -= 10; r2.y -= 10;}
+				{r1.y -= 10; r2.y -= 10; break; }
 			
 		default:
 			break;
 	}
 }
 
-bool Game::has_reached_bottom(){
-	
-	//TODO: we need to check if the tetrinimo has reached as far down as it can go
-	//...for this particular set of x values (think about dividing the playing field
-	//...in grid lines).
-	
-	if(intersects_bottom()){
-		
-		act->set_cant_go_further_down();
-		return true;
-	}
-	
-	return false;
-	
-}
 
 
 /*returns false if the tetrinimo can move its full 20 or 10 units in
@@ -363,14 +533,17 @@ std::pair<bool, int> Game::intersects_another_tetrinimo(movetype _move){
 	for(int i = 1; i < max_movement_allowed; ++i){
 		switch (_move) {
 			case movetype::right :
-				temp_r1.x += i; temp_r2.x += i;
-				break;
+				{temp_r1.x += i; temp_r2.x += i;
+					break;}
+				
 			case movetype::left :
-				temp_r1.x -= i; temp_r2.x -= i;
-				break;
+				{temp_r1.x -= i; temp_r2.x -= i;
+					break;}
+				
 			case movetype::down :
-				temp_r1.y += i; temp_r2.y += i;
-				break;
+				{temp_r1.y += i; temp_r2.y += i;
+					break;}
+				
 			default:
 				break;
 		}
@@ -386,8 +559,6 @@ std::pair<bool, int> Game::intersects_another_tetrinimo(movetype _move){
 }
 
 std::pair<bool,int> Game::intersects_left(){
-	
-	
 	
 	if(SDL_HasIntersection(left_boun, &act->rectOne) || SDL_HasIntersection(left_boun, &act->rectTwo))
 		return std::make_pair(true,0);
@@ -439,18 +610,6 @@ std::pair<bool,int> Game::intersects_right(){
 	}
 	
 	return std::make_pair(false, max_movement_to_right);
-}
-
-bool Game::intersects_bottom(){
-	
-	SDL_Rect temp_r_one = act->rectOne;
-	SDL_Rect temp_r_two  = act->rectTwo;
-	
-	temp_r_one.y += 10; temp_r_two.y += 10;
-	
-	if(SDL_HasIntersection(&temp_r_one, bottom_boundary) || SDL_HasIntersection(&temp_r_two, bottom_boundary))
-		return true;
-	return false;
 }
 
 
@@ -517,16 +676,25 @@ void Game::update(SDL_Scancode _key){
 			move_right(); break;
 		
 		case SDL_SCANCODE_D:
-			//TODO: add rotate functionality.
+		{
+			std::cout << "right\n";
+			rotate(rotateType::right);
 			break;
+		}
 			
+		case SDL_SCANCODE_A:
+		{
+			std::cout << "kosi\n";
+			rotate(rotateType::left);
+			break;
+		}
 		case SDL_SCANCODE_LEFT:
 			
 			move_left(); break;
 		
 		case SDL_SCANCODE_LSHIFT:
-			std::cout << "kosi\n";
 			lock_logic(); break;
+			
 			
 		default:
 			break;
@@ -552,16 +720,33 @@ void createBoundaryObjects(){
 	SDL_Rect * three = new SDL_Rect();
 	three->x = 250; three->y = 551;
 	three->w = 580-250; three->h = 20;
+//
+//	SDL_Rect * four = new SDL_Rect();
+//	four->x = 390; four->y = 470;
+//	four->w = 90;
+//	four->h = 30;
+//
+//
+//	auto five = new SDL_Rect();
+//	five->x = 440; five->y = 490;
+//	five->w = 60;
+//	five->h = 30;
 	
 	boundary_objects.push_back(one);
 	boundary_objects.push_back(two);
 	boundary_objects.push_back(three);
+//	boundary_objects.push_back(four);
+//	boundary_objects.push_back(five);
+
+
 }
 
 void drawBoundary()
 {
 	SDL_SetRenderDrawColor(la_rend, 139, 0, 0, 255);
 	for(auto i = 0; i < boundary_objects.size(); ++i){
+		if(i == 4)
+		{SDL_SetRenderDrawColor(la_rend, 0, 0, 205, 255);}
 		SDL_RenderFillRect(la_rend, boundary_objects.at(i));
 	}
 }
@@ -575,6 +760,9 @@ void drawTetrinimos(){
 		
 		if(obj->get_color() == tetrinimocolor::blue)
 			SDL_SetRenderDrawColor(la_rend, 0, 0, 205, 255);
+		
+		if(obj->get_color() == tetrinimocolor::pink)
+			SDL_SetRenderDrawColor(la_rend, 75, 0, 100, 255);
 		
 		SDL_RenderFillRect(la_rend, &obj->rectOne);
 		SDL_RenderFillRect(la_rend, &obj->rectTwo);
